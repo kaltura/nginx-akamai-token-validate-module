@@ -13,6 +13,7 @@ typedef struct {
 	ngx_str_t 	key;
 	ngx_str_t 	param_name;
 	ngx_array_t* filename_prefixes;
+	ngx_flag_t	strip_token;
 } ngx_http_akamai_token_validate_loc_conf_t;
 
 enum {
@@ -76,6 +77,13 @@ static ngx_command_t  ngx_http_akamai_token_validate_commands[] = {
 	ngx_conf_set_str_array_slot,
 	NGX_HTTP_LOC_CONF_OFFSET,
 	offsetof(ngx_http_akamai_token_validate_loc_conf_t, filename_prefixes),
+	NULL },
+
+	{ ngx_string("akamai_token_validate_strip_token"),
+	NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_FLAG,
+	ngx_conf_set_flag_slot,
+	NGX_HTTP_LOC_CONF_OFFSET,
+	offsetof(ngx_http_akamai_token_validate_loc_conf_t, strip_token),
 	NULL },
 
 	ngx_null_command
@@ -335,6 +343,49 @@ ngx_http_akamai_token_validate(ngx_http_request_t *r, ngx_str_t* token, ngx_str_
 }
 
 static ngx_int_t
+ngx_http_akamai_token_validate_strip_arg(ngx_http_request_t *r, ngx_str_t* arg_name, ngx_str_t* arg_value)
+{
+	u_char* arg_start = arg_value->data - arg_name->len - 1;	// 1 = the equal sign
+	u_char* arg_end = arg_value->data + arg_value->len;
+	u_char* uri_end = r->unparsed_uri.data + r->unparsed_uri.len;
+	u_char* new_uri;
+	u_char* p;
+
+	// Note: this code assumes that the arg returned from ngx_http_arg points to a substring of 
+	//	of r->unparsed_uri and r->args, that is always the case according to nginx code
+	if (arg_start < r->unparsed_uri.data || arg_end > uri_end || 
+		arg_start < r->args.data || arg_end > r->args.data + r->args.len)
+	{
+		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+			"ngx_http_akamai_token_validate_module: unexpected, token is not within unparsed_uri / args");
+		return NGX_ERROR;
+	}
+
+	new_uri = ngx_palloc(r->pool, r->unparsed_uri.len + 1);
+	if (new_uri == NULL)
+	{
+		return NGX_ERROR;
+	}
+
+	p = ngx_copy(new_uri, r->unparsed_uri.data, arg_start - r->unparsed_uri.data);
+	if (arg_end + 1 < uri_end)
+	{
+		p = ngx_copy(p, arg_end + 1, uri_end - arg_end - 1);
+	}
+	if (p[-1] == '?' || p[-1] == '&')
+		p--;
+	*p = '\0';
+
+	r->args.data = new_uri + (r->args.data - r->unparsed_uri.data);
+	r->args.len -= (arg_end - arg_start);
+
+	r->unparsed_uri.data = new_uri;
+	r->unparsed_uri.len = p - new_uri;
+
+	return NGX_OK;
+}
+
+static ngx_int_t
 ngx_http_akamai_token_validate_handler(ngx_http_request_t *r)
 {
 	ngx_http_akamai_token_validate_loc_conf_t  *conf;
@@ -388,6 +439,14 @@ ngx_http_akamai_token_validate_handler(ngx_http_request_t *r)
 	
 	if (ngx_http_akamai_token_validate(r, &token, &conf->key))
 	{
+		if (conf->strip_token)
+		{
+			if (ngx_http_akamai_token_validate_strip_arg(r, &conf->param_name, &token) != NGX_OK)
+			{
+				return NGX_HTTP_INTERNAL_SERVER_ERROR;
+			}
+		}
+
 		return NGX_OK;
 	}
 	else
@@ -409,6 +468,7 @@ ngx_http_akamai_token_validate_create_loc_conf(ngx_conf_t *cf)
 
     conf->enable = NGX_CONF_UNSET;
 	conf->filename_prefixes = NGX_CONF_UNSET_PTR;
+	conf->strip_token = NGX_CONF_UNSET;
 	return conf;
 }
 
@@ -423,6 +483,7 @@ ngx_http_akamai_token_validate_merge_loc_conf(ngx_conf_t *cf, void *parent, void
 	ngx_conf_merge_str_value(conf->key, prev->key, "");
 	ngx_conf_merge_str_value(conf->param_name, prev->param_name, "__hdnea__");
 	ngx_conf_merge_ptr_value(conf->filename_prefixes, prev->filename_prefixes, NULL);
+	ngx_conf_merge_value(conf->strip_token, prev->strip_token, 0);
 	return NGX_CONF_OK;
 }
 
