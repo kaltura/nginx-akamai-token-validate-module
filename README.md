@@ -41,6 +41,14 @@ Sets the token query string parameter name
 Defines a set of prefixes that will be matched against the URI file name, only URIs whose file name
 starts with one of the defined prefixes will require a token
 
+#### akamai_token_validate_strip_token
+* **syntax**: `akamai_token_validate_strip_token on/off`
+* **default**: `off`
+* **context**: `http`, `server`, `location`
+
+When enabled, the token is stripped off the request URI. This setting is useful when the validated requests 
+are proxied to some upstream server (using proxy_pass), it hides the token from the upstream server
+
 ## Copyright & License
 
 All code in this project is released under the [AGPLv3 license](http://www.gnu.org/licenses/agpl-3.0.html) unless a different license for a particular library is specified in the applicable library path. 
