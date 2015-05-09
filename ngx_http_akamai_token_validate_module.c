@@ -385,6 +385,19 @@ ngx_http_akamai_token_validate_strip_arg(ngx_http_request_t *r, ngx_str_t* arg_n
 	return NGX_OK;
 }
 
+static void *
+ngx_http_secure_token_validate_memrchr(const u_char *s, int c, size_t n)
+{
+	const u_char *cp;
+
+	for (cp = s + n; cp > s;)
+	{
+		if (*(--cp) == (u_char)c)
+			return (void*)cp;
+	}
+	return NULL;
+}
+
 static ngx_int_t
 ngx_http_akamai_token_validate_handler(ngx_http_request_t *r)
 {
@@ -405,7 +418,7 @@ ngx_http_akamai_token_validate_handler(ngx_http_request_t *r)
 	
 	if (conf->filename_prefixes != NULL)
 	{
-		last_slash_pos = memrchr(r->uri.data, '/', r->uri.len);
+		last_slash_pos = ngx_http_secure_token_validate_memrchr(r->uri.data, '/', r->uri.len);
 		if (last_slash_pos == NULL) 
 		{
 			return NGX_HTTP_FORBIDDEN;
