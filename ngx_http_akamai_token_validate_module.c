@@ -277,9 +277,11 @@ ngx_http_akamai_token_validate(ngx_http_request_t *r, ngx_str_t* token, ngx_str_
 	}
 	
 	// validate the signature
+    HMAC_CTX_init(&hmac);
     HMAC_Init(&hmac, key->data, key->len, EVP_sha256());
     HMAC_Update(&hmac, parsed_token.signed_part.data, parsed_token.signed_part.len);
     HMAC_Final(&hmac, hash, &hash_len);
+    HMAC_CTX_cleanup(&hmac);
 	hash_hex_len = ngx_hex_dump(hash_hex, hash, hash_len) - hash_hex;
 	
 	if (hash_hex_len != parsed_token.hmac.len ||
