@@ -261,7 +261,10 @@ ngx_http_akamai_token_validate(ngx_http_request_t *r, ngx_str_t* token, ngx_str_
 	u_char hash_hex[EVP_MAX_MD_SIZE * 2];
 	size_t hash_hex_len;
 	ngx_int_t value;
-	HMAC_CTX hmac;
+#if (OPENSSL_VERSION_NUMBER < 0x10100000L)
+	HMAC_CTX hmac_buf;
+#endif
+	HMAC_CTX* hmac;
 
 	if (!ngx_http_akamai_token_validate_parse(token, &parsed_token))
 	{
@@ -269,11 +272,24 @@ ngx_http_akamai_token_validate(ngx_http_request_t *r, ngx_str_t* token, ngx_str_
 	}
 	
 	// validate the signature
-	HMAC_CTX_init(&hmac);
-	HMAC_Init(&hmac, key->data, key->len, EVP_sha256());
-	HMAC_Update(&hmac, parsed_token.signed_part.data, parsed_token.signed_part.len);
-	HMAC_Final(&hmac, hash, &hash_len);
-	HMAC_CTX_cleanup(&hmac);
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
+	hmac = HMAC_CTX_new();
+	if (hmac == NULL)
+	{
+		return 0;
+	}
+#else
+	hmac = &hmac_buf;
+	HMAC_CTX_init(hmac);
+#endif
+	HMAC_Init_ex(hmac, key->data, key->len, EVP_sha256(), NULL);
+	HMAC_Update(hmac, parsed_token.signed_part.data, parsed_token.signed_part.len);
+	HMAC_Final(hmac, hash, &hash_len);
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
+	HMAC_CTX_free(hmac);
+#else
+	HMAC_CTX_cleanup(hmac);
+#endif
 	hash_hex_len = ngx_hex_dump(hash_hex, hash, hash_len) - hash_hex;
 	
 	if (hash_hex_len != parsed_token.hmac.len ||
