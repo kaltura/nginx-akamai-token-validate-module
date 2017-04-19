@@ -13,11 +13,12 @@ Requires OpenSSL.
 ## Configuration
 
 #### akamai_token_validate
-* **syntax**: `akamai_token_validate on/off`
+* **syntax**: `akamai_token_validate token`
 * **default**: `off`
 * **context**: `http`, `server`, `location`
 
-Enables / disables the module
+Sets the value of the token that should be validated.
+The parameter value can contain variables, e.g. $arg_token.
 
 #### akamai_token_validate_key
 * **syntax**: `akamai_token_validate_key key_hex`
@@ -25,13 +26,6 @@ Enables / disables the module
 * **context**: `http`, `server`, `location`
 
 Sets the secret key
-
-#### akamai_token_validate_param_name
-* **syntax**: `akamai_token_validate_param_name name`
-* **default**: `__hdnea__`
-* **context**: `http`, `server`, `location`
-
-Sets the token query string parameter name
 
 #### akamai_token_validate_uri_filename_prefix
 * **syntax**: `akamai_token_validate_uri_filename_prefix prefix`
@@ -42,8 +36,8 @@ Defines a set of prefixes that will be matched against the URI file name, only U
 starts with one of the defined prefixes will require a token
 
 #### akamai_token_validate_strip_token
-* **syntax**: `akamai_token_validate_strip_token on/off`
-* **default**: `off`
+* **syntax**: `akamai_token_validate_strip_token param_name`
+* **default**: `none`
 * **context**: `http`, `server`, `location`
 
 When enabled, the token is stripped off the request URI. This setting is useful when the validated requests 
