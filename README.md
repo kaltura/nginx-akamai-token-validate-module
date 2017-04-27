@@ -40,8 +40,10 @@ starts with one of the defined prefixes will require a token
 * **default**: `none`
 * **context**: `http`, `server`, `location`
 
-When enabled, the token is stripped off the request URI. This setting is useful when the validated requests 
-are proxied to some upstream server (using proxy_pass), it hides the token from the upstream server
+This setting can be used to strip query parameters, set it to the name of the parameter to strip.
+The default behavior is not to strip any query parameters.
+This setting is useful when the validated requests are proxied to some upstream server (using proxy_pass) - 
+it can be used to remove the token from the upstream request
 
 ## Copyright & License
 
