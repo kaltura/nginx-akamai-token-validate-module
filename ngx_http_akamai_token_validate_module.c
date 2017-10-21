@@ -25,6 +25,7 @@ typedef struct {
 	ngx_str_t st;
 	ngx_str_t exp;
 	ngx_str_t acl;
+	ngx_str_t ip;
 	
 	ngx_str_t hmac;
 	ngx_str_t signed_part;
@@ -39,6 +40,7 @@ static const ngx_http_akamai_token_field_t token_fields[] = {
 	{ ngx_string("st"), offsetof(ngx_http_akamai_token_t, st) },
 	{ ngx_string("exp"), offsetof(ngx_http_akamai_token_t, exp) },
 	{ ngx_string("acl"), offsetof(ngx_http_akamai_token_t, acl) },
+	{ ngx_string("ip"), offsetof(ngx_http_akamai_token_t, ip) },
 	{ ngx_null_string, 0 }
 };
 
@@ -259,6 +261,7 @@ ngx_http_akamai_token_validate(ngx_http_request_t *r, ngx_str_t* token, ngx_str_
 	unsigned hash_len;
 	u_char hash[EVP_MAX_MD_SIZE];
 	u_char hash_hex[EVP_MAX_MD_SIZE * 2];
+	ngx_str_t* addr_text;
 	size_t hash_hex_len;
 	ngx_int_t value;
 #if (OPENSSL_VERSION_NUMBER < 0x10100000L)
@@ -349,6 +352,17 @@ ngx_http_akamai_token_validate(ngx_http_request_t *r, ngx_str_t* token, ngx_str_
 		}
 	}
 	
+	// validate the ip
+	if (parsed_token.ip.len != 0)
+	{
+		addr_text = &r->connection->addr_text;
+		if (parsed_token.ip.len != addr_text->len ||
+			ngx_memcmp(parsed_token.ip.data, addr_text->data, parsed_token.ip.len) != 0)
+		{
+			return 0;
+		}
+	}
+
 	return 1;
 }
 
