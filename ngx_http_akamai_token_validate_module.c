@@ -396,12 +396,23 @@ ngx_http_akamai_token_validate_strip_arg(ngx_http_request_t *r, ngx_str_t* arg_n
 	{
 		p = ngx_copy(p, arg_end + 1, uri_end - arg_end - 1);
 	}
+
 	if (p[-1] == '?' || p[-1] == '&')
+	{
 		p--;
+	}
+
 	*p = '\0';
 
 	r->args.data = new_uri + (r->args.data - r->unparsed_uri.data);
-	r->args.len -= (arg_end - arg_start);
+	if (r->args.data < p)
+	{
+		r->args.len = p - r->args.data;
+	}
+	else
+	{
+		r->args.len = 0;
+	}
 
 	r->unparsed_uri.data = new_uri;
 	r->unparsed_uri.len = p - new_uri;
