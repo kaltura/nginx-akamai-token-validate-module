@@ -45,6 +45,15 @@ The default behavior is not to strip any query parameters.
 This setting is useful when the validated requests are proxied to some upstream server (using proxy_pass) - 
 it can be used to remove the token from the upstream request
 
+#### akamai_token_validate_url
+* **syntax**: `akamai_token_validate_url on|off`
+* **default**: `off`
+* **context**: `http`, `server`, `location`
+
+This setting toggles performing url validation if no `acl` is present in the token data.
+URL validation adds the request URI to end of the signed data of the HMAC which can be useful when creating
+a signed URL for one resource.
+
 ### Sample configuration
 The following configuration requires a token parameter named `token`, either as a query string parameter or as a cookie:
 ```
