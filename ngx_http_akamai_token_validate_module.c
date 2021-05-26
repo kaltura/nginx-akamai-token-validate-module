@@ -291,7 +291,7 @@ ngx_http_akamai_token_validate(ngx_http_request_t *r, ngx_str_t* token, ngx_str_
 
 	// If no acl is defined include the url into the signed data
 	if (parsed_token.acl.len == 0) {
-		HMAC_Update(hmac, "~url=", sizeof("~url=") - 1);
+		HMAC_Update(hmac, (u_char*)"~url=", sizeof("~url=") - 1);
 		HMAC_Update(hmac, r->uri.data, r->uri.len);
 	}
 
