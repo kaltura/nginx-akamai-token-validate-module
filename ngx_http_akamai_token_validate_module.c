@@ -13,7 +13,6 @@ typedef struct {
 	ngx_str_t 	key;
 	ngx_array_t* filename_prefixes;
 	ngx_str_t	strip_token;
-        ngx_flag_t	validate_url;
 } ngx_http_akamai_token_validate_loc_conf_t;
 
 enum {
@@ -80,14 +79,6 @@ static ngx_command_t  ngx_http_akamai_token_validate_commands[] = {
 	NGX_HTTP_LOC_CONF_OFFSET,
 	offsetof(ngx_http_akamai_token_validate_loc_conf_t, strip_token),
 	NULL },
-
-	{ ngx_string("akamai_token_validate_url"),
-	NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_FLAG,
-	ngx_conf_set_flag_slot,
-	NGX_HTTP_LOC_CONF_OFFSET,
-	offsetof(ngx_http_akamai_token_validate_loc_conf_t, validate_url),
-	NULL },
-
 
 	ngx_null_command
 };
@@ -264,15 +255,13 @@ ngx_http_akamai_token_validate_parse(ngx_str_t* token, ngx_http_akamai_token_t* 
 }
 
 static ngx_flag_t
-ngx_http_akamai_token_validate(ngx_http_request_t *r, ngx_str_t* token, ngx_str_t* key, ngx_flag_t validate_url)
+ngx_http_akamai_token_validate(ngx_http_request_t *r, ngx_str_t* token, ngx_str_t* key)
 {
 	ngx_http_akamai_token_t parsed_token;
 	unsigned hash_len;
 	u_char hash[EVP_MAX_MD_SIZE];
 	u_char hash_hex[EVP_MAX_MD_SIZE * 2];
 	ngx_str_t* addr_text;
-        u_char* temp_token;
-        size_t temp_token_len;
 	size_t hash_hex_len;
 	ngx_int_t value;
 #if (OPENSSL_VERSION_NUMBER < 0x10100000L)
@@ -298,23 +287,14 @@ ngx_http_akamai_token_validate(ngx_http_request_t *r, ngx_str_t* token, ngx_str_
 #endif
 	HMAC_Init_ex(hmac, key->data, key->len, EVP_sha256(), NULL);
 
-	// If no acl is defined and url validation is enabled, include the url into the signed data
-	if (parsed_token.acl.len == 0 && validate_url)
-	{
-		temp_token_len = parsed_token.signed_part.len + sizeof("~url=") + r->uri.len - 1;
-		temp_token = ngx_palloc(r->pool, temp_token_len);
-		if (temp_token == NULL)
-		{
-			return NGX_ERROR;
-		}
-		ngx_memcpy(temp_token, parsed_token.signed_part.data, parsed_token.signed_part.len);
-		ngx_memcpy(temp_token + parsed_token.signed_part.len, "~url=", sizeof("~url=") - 1); 
-		ngx_memcpy(temp_token + parsed_token.signed_part.len + sizeof("~url=") - 1, r->uri.data, r->uri.len);
-		parsed_token.signed_part.data = temp_token;
-		parsed_token.signed_part.len = temp_token_len;
+	HMAC_Update(hmac, parsed_token.signed_part.data, parsed_token.signed_part.len);
+
+	// If no acl is defined include the url into the signed data
+	if (parsed_token.acl.len == 0) {
+		HMAC_Update(hmac, "~url=", sizeof("~url=") - 1);
+		HMAC_Update(hmac, r->uri.data, r->uri.len);
 	}
 
-	HMAC_Update(hmac, parsed_token.signed_part.data, parsed_token.signed_part.len);
 	HMAC_Final(hmac, hash, &hash_len);
 #if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
 	HMAC_CTX_free(hmac);
@@ -514,7 +494,7 @@ ngx_http_akamai_token_validate_handler(ngx_http_request_t *r)
 		return NGX_HTTP_INTERNAL_SERVER_ERROR;
 	}
 
-	if (ngx_http_akamai_token_validate(r, &token, &conf->key, conf->validate_url))
+	if (ngx_http_akamai_token_validate(r, &token, &conf->key))
 	{
 		if (conf->strip_token.len != 0)
 		{
@@ -549,7 +529,6 @@ ngx_http_akamai_token_validate_create_loc_conf(ngx_conf_t *cf)
 	}
 
 	conf->filename_prefixes = NGX_CONF_UNSET_PTR;
-	conf->validate_url = NGX_CONF_UNSET;
 	return conf;
 }
 
@@ -568,7 +547,6 @@ ngx_http_akamai_token_validate_merge_loc_conf(ngx_conf_t *cf, void *parent, void
 	ngx_conf_merge_ptr_value(conf->filename_prefixes, prev->filename_prefixes, NULL);
 	ngx_conf_merge_str_value(conf->strip_token, prev->strip_token, "");
 	ngx_conf_merge_str_value(conf->strip_token, prev->strip_token, "");
-	ngx_conf_merge_value(conf->validate_url, prev->validate_url, 0);
 	return NGX_CONF_OK;
 }
 
