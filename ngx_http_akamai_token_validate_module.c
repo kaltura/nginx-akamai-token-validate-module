@@ -286,7 +286,6 @@ ngx_http_akamai_token_validate(ngx_http_request_t *r, ngx_str_t* token, ngx_str_
 	HMAC_CTX_init(hmac);
 #endif
 	HMAC_Init_ex(hmac, key->data, key->len, EVP_sha256(), NULL);
-
 	HMAC_Update(hmac, parsed_token.signed_part.data, parsed_token.signed_part.len);
 
 	// If no acl is defined include the url into the signed data
@@ -302,8 +301,7 @@ ngx_http_akamai_token_validate(ngx_http_request_t *r, ngx_str_t* token, ngx_str_
 	HMAC_CTX_cleanup(hmac);
 #endif
 	hash_hex_len = ngx_hex_dump(hash_hex, hash, hash_len) - hash_hex;
-
-
+	
 	if (hash_hex_len != parsed_token.hmac.len ||
 		ngx_memcmp(hash_hex, parsed_token.hmac.data, hash_hex_len) != 0)
 	{
@@ -545,7 +543,6 @@ ngx_http_akamai_token_validate_merge_loc_conf(ngx_conf_t *cf, void *parent, void
 	}
 	ngx_conf_merge_str_value(conf->key, prev->key, "");
 	ngx_conf_merge_ptr_value(conf->filename_prefixes, prev->filename_prefixes, NULL);
-	ngx_conf_merge_str_value(conf->strip_token, prev->strip_token, "");
 	ngx_conf_merge_str_value(conf->strip_token, prev->strip_token, "");
 	return NGX_CONF_OK;
 }
