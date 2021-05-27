@@ -287,6 +287,14 @@ ngx_http_akamai_token_validate(ngx_http_request_t *r, ngx_str_t* token, ngx_str_
 #endif
 	HMAC_Init_ex(hmac, key->data, key->len, EVP_sha256(), NULL);
 	HMAC_Update(hmac, parsed_token.signed_part.data, parsed_token.signed_part.len);
+
+	// If no acl is defined include the url into the signed data
+	if (parsed_token.acl.len == 0)
+	{
+		HMAC_Update(hmac, (u_char*)"~url=", sizeof("~url=") - 1);
+		HMAC_Update(hmac, r->uri.data, r->uri.len);
+	}
+
 	HMAC_Final(hmac, hash, &hash_len);
 #if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
 	HMAC_CTX_free(hmac);
